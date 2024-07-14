@@ -37,11 +37,24 @@ def obtener_siguiente_id():
         conexion.close()
 
 def mostrar_siguiente_id():
-    siguiente_id = obtener_siguiente_id()
-    entryId.config(state="normal")  # Habilitar para modificar temporalmente
-    entryId.delete(0, tk.END)
-    entryId.insert(0, siguiente_id)
-    entryId.config(state="readonly")  # Volver a readonly después de actualizar
+    conexion = conectar()
+    cursor = conexion.cursor()
+    try:
+        # Obtener el último ID
+        cursor.execute("SELECT MAX(id) FROM misdatos")
+        resultado = cursor.fetchone()
+        ultimo_id = resultado[0] if resultado[0] is not None else 0
+        
+        # Mostrar el siguiente ID en entryId
+        siguiente_id = ultimo_id + 1
+        entryId.config(state="normal")  # Habilitar para modificar temporalmente
+        entryId.delete(0, tk.END)
+        entryId.insert(0, siguiente_id)
+        entryId.config(state="readonly")  # Volver a readonly después de actualizar
+    except Error as e:
+        messagebox.showerror('Error al obtener siguiente ID', str(e))
+    finally:
+        conexion.close()
 
 def insertar():
     conexion = conectar()
@@ -54,6 +67,7 @@ def insertar():
         messagebox.showinfo('Informacion', 'Registro insertado con éxito!')
         mostrar_siguiente_id()  # Mostrar el siguiente ID después de insertar
         limpiarCampos()
+        
     except Error as e:
         messagebox.showerror('Error al insertar datos', str(e))
     finally:
@@ -62,8 +76,8 @@ def insertar():
 def editar():
     conexion = conectar()
     cursor = conexion.cursor()
-    sql = "UPDATE misdatos SET nombres=%s, apellidos=%s, telefono=%s WHERE id=%s"
-    valores = (entryNombres.get(), entryApellidos.get(), entrytelefono.get(), entryId.get())
+    sql = "UPDATE misdatos SET id=%s,nombres=%s, apellidos=%s, telefono=%s WHERE email=%s"
+    valores = (entryId.get(),entryNombres.get(), entryApellidos.get(), entrytelefono.get(),entryMail.get())
     try:
         cursor.execute(sql, valores)
         conexion.commit()
@@ -74,16 +88,15 @@ def editar():
     finally:
         conexion.close()
 
+
 def eliminar():
     conexion = conectar()
     cursor = conexion.cursor()
     sql = "DELETE FROM misdatos WHERE id=%s"
-    valores = (entryId.get(),)
     try:
-        cursor.execute(sql, valores)
+        cursor.execute(sql, (entryBuscarId.get(),))
         conexion.commit()
         messagebox.showinfo('Informacion', 'Registro eliminado con éxito!')
-        mostrar_siguiente_id()  # Mostrar el siguiente ID después de eliminar
         limpiarCampos()
     except Error as e:
         messagebox.showerror('Error al Eliminar datos', str(e))
@@ -99,10 +112,8 @@ def buscar():
         registro = cursor.fetchone()
  
         if registro:
-            # Limpiar los campos antes de insertar los nuevos valores
-            limpiarCampos()
-            
             id_label.config(text=f"ID ENCONTRADO: {registro[0]}")
+            entryId.insert(0, registro[0])
             entryNombres.insert(0, registro[1])
             entryApellidos.insert(0, registro[2])
             entrytelefono.insert(0, registro[3])
